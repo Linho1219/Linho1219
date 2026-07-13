@@ -1,22 +1,51 @@
 name: GitHub Profile Summary Cards
 
 on:
-  create:
-  schedule: # execute 4:00 AM (UTC+8)
+  schedule:
     - cron: "0 20 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
+concurrency:
+  group: profile-summary-cards
+  cancel-in-progress: true
+
 jobs:
-  build:
+  generate:
     runs-on: ubuntu-latest
-    name: generate-github-cards
-    permissions:
-      contents: write
 
     steps:
-      - uses: actions/checkout@v2
-      - uses: vn7n24fzkq/github-profile-summary-cards@release
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate cards
+        uses: Linho1219/github-profile-summary-cards@dist
         env:
           GITHUB_TOKEN: ${{ secrets.PROFILE_TOKEN }}
         with:
-          USERNAME: ${{ github.repository_owner }}
+          USERNAME: Linho1219
+          BRANCH_NAME: profile-summary-cards
+          UTC_OFFSET: 8
+          EXCLUDE: ""
+          THEMES: github,github_dark
+          AUTO_PUSH: false
+
+      - name: Prepare output branch
+        run: |
+          mkdir -p .cards-dist
+          cp -R profile-summary-card-output .cards-dist/profile-summary-card-output
+
+      - name: Publish output branch
+        working-directory: .cards-dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git init
+          git checkout -b profile-summary-cards
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add profile-summary-card-output
+          git commit -m "chore: publish profile summary cards"
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" profile-summary-cards:profile-summary-cards
